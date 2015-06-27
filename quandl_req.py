@@ -59,6 +59,7 @@ def buildCorr(data_struct):
     st_list = list(data_struct.keys())
     #Instantiate the correlation matrix
     corr_mat = np.zeros((len(st_list),len(st_list)))
+    covar_mat = np.zeros((len(st_list),len(st_list)))
 
     for a in st_list:
         for b in st_list:
@@ -85,16 +86,13 @@ def buildCorr(data_struct):
                 print("CATASTROPHIC ERROR\n Somehow different sized data")
 
             covar = sum((x[0]-a_avg)*(x[1]-b_avg) for x in zip(a_dif,b_dif))/sample
-
             corr = covar/(np.std(a_dif)*np.std(b_dif))
 
             corr_mat[st_list.index(a),st_list.index(b)] = corr
+            covar_mat[st_list.index(a),st_list.index(b)] = covar
 
     return corr_mat
 
-    '''
-        Issue now is that for large numbers of data points getValdata() isn't working everytime. I need to debug it -> I'm getting calls to the catostrophic error that somehow work even though the value sample isn't defined. Clearly the error is only in valData
-    '''
 
 if __name__ == '__main__':
     [data_struct, dates] = getValdata(['AAPL','GOOGL','MSFT'],1000)
