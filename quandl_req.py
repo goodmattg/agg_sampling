@@ -23,41 +23,50 @@ def getHistoricData(ticker, data_pt):
                       returns='numpy',
                       sort_order='desc')
     # {date: close price}
-    cleaned_rec = {item[0].date(): item[4] for item in data}
-
-    return cleaned_rec   # returns the complete record of the stock
+    date_close = {item[0].date(): item[4] for item in data}
+    return date_close   # returns the complete record of the stock
 
 
 def getPerc(cur, prev):
-    perc = round(100*((cur-prev)/prev), 3)
+    perc = 100*round(((cur-prev)/prev), 6)
     return perc
 
 
 def getValdata(stock_list, data_pt):
+
+    '''
+    Returns
+    '''
+
     unif_dates = set()  # unified list of all date data points
     data_struct = dict()  # {ticker: {date:close, date:close}, ...}
 
-    for stock in stock_list:
-        # get the data for each stock in the list
-        hist_data = getHistoricData(stock, data_pt)
-        # get the dates
-        dates = set(hist_data.keys())
+    for st in stock_list:
+        hist_data = getHistoricData(st, data_pt)  # get date:price data
+        dates = set(hist_data.keys())  # current stock list of dates
 
-        if unif_dates:
+        if unif_dates:  # reconcile with universal list of dates
             unif_dates = unif_dates.intersection(dates)
         else:
             unif_dates = unif_dates.union(dates)
-        # dictionary to store {ticker:{date:price,date:price}}
-        data_struct[stock] = hist_data
+
+        data_struct[st] = hist_data  # {tick:{date:price,date:price}, ...}
+
+    dat_table = np.zeros((len(unif_dates), len(stock_list)))
+    unif_dates = sorted(unif_dates, reverse=True)
 
     # Clean up the complete data structure based on unified dates
-    for stock in stock_list:
-        dates = data_struct[stock].keys()
-        mod = data_struct[stock]
-        data_struct[stock] = {d: round(mod[d]*100)
-                              for d in dates if d in unif_dates}
+    # Create a storage matrix
+    for st in stock_list:
+        dates = sorted(data_struct[st].keys(), reverse=True)
+        dates = sorted([d for d in dates if d in unif_dates], reverse=True)
+        data_struct[st] = {d: data_struct[st][d]*100 for d in dates}
+        for d in dates:
+            ind_d = dates.index(d)
+            ind_st = stock_list.index(st)
+            dat_table[ind_d, ind_st] = data_struct[st][d]
 
-    return [data_struct, unif_dates]
+    return [data_struct, unif_dates, dat_table, stock_list]
 
 
 def buildCorr(data_struct):
@@ -83,6 +92,11 @@ def buildCorr(data_struct):
         # Add to storage dict
         all_data[st] = (st_dif, st_avg, st_pr)
 
+    # Signal is most recent set of price differences
+    signal = dict()
+    for k, v in all_data.items():
+        signal[k] = v[0][0]
+
     for a in st_list:
         for b in st_list:
 
@@ -104,13 +118,14 @@ def buildCorr(data_struct):
             corr_mat[st_list.index(a), st_list.index(b)] = corr
             covar_mat[st_list.index(a), st_list.index(b)] = covar
 
-    return corr_mat, covar_mat
+    return corr_mat, covar_mat, signal
 
 
 if __name__ == '__main__':
-    [data_struct, dates] = getValdata(['AAPL', 'GOOGL', 'MSFT'], 100)
-    print("Got Data!\n")
-    corr_mat, covar_mat = buildCorr(data_struct)
+    [dt_struct, dates, dt_table, st_list] = getValdata(['AAPL', 'MYE'], 10)
+
+    corr_mat, covar_mat, signal = buildCorr(dt_struct)
+
     print(covar_mat)
     print("Covariance matrix built with: {0} data points".format(len(dates)))
     print(corr_mat)
